@@ -1,0 +1,38 @@
+# === CONFIGURAÇÃO ===
+$dominio = "seap.rj"           # Seu domínio (sem o LDAP://)
+$caminhoCsv = "C:\usuarios_samba4.csv"  # Caminho de saída
+
+# === CONECTANDO AO LDAP ===
+$ldapPath = "LDAP://$dominio"
+$searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]$ldapPath)
+
+# === FILTRO LDAP: apenas usuários ===
+$searcher.Filter = "(&(objectCategory=person)(objectClass=user))"
+$searcher.PageSize = 1000
+
+# === CAMPOS QUE VAMOS PEGAR ===
+$searcher.PropertiesToLoad.AddRange(@(
+    "samaccountname",
+    "displayname",
+    "mail",
+    "userprincipalname"
+))
+
+# === BUSCA ===
+$results = $searcher.FindAll()
+
+# === PROCESSAMENTO DOS RESULTADOS ===
+$usuarios = foreach ($result in $results) {
+    $p = $result.Properties
+    [PSCustomObject]@{
+        SamAccountName     = $p["samaccountname"] | Select-Object -First 1
+        DisplayName        = $p["displayname"] | Select-Object -First 1
+        Mail               = $p["mail"] | Select-Object -First 1
+        UserPrincipalName  = $p["userprincipalname"] | Select-Object -First 1
+    }
+}
+
+# === EXPORTAR PARA CSV ===
+$usuarios | Export-Csv -Path $caminhoCsv -Encoding UTF8 -NoTypeInformation
+
+Write-Host "`n✅ Exportação concluída: $caminhoCsv"
